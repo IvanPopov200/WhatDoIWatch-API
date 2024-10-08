@@ -6,19 +6,9 @@ from bs4 import BeautifulSoup
 import requests, json, os
 from openai import OpenAI
 from dotenv import load_dotenv
-from pydantic import BaseModel
+from sqlalchemy.sql import text
 from prompts import PROMPT_ALL_MOVIES, PROMPT_RATED_MOVIES
-from pydantic import BaseModel
-from typing import List
-from fastapi import FastAPI
-
-class RecommendedMovie(BaseModel):
-    title: str
-
-class MovieRecommendations(BaseModel):
-    input_movies: List[str]
-    recommended_movies: List[RecommendedMovie]
-
+from models import Movies, RecommendedMovie, MovieRecommendations, Base, SessionLocal, Users, RatedMovies
 
 app = FastAPI()
 load_dotenv()
@@ -43,42 +33,52 @@ async def add_lb(lb_username: str):
 
     pages = soup.find_all('li', class_='paginate-page')
     results = soup.find_all('li', class_='poster-container')
+    with SessionLocal() as db:
+        if len(pages) > 1:
+            current_page = 2
+            while current_page <= len(pages):
+                next_page = URL + "page/" + str(current_page) + "/"
+                next_page_html = requests.get(next_page)
+                new_page_soup = BeautifulSoup(next_page_html.content, "html.parser")
+                results += new_page_soup.find_all('li', class_='poster-container')
+                current_page += 1
+                
+        all_movies = []
+        all_movie_titles = []
+        rated_movies = []
 
-    if len(pages) > 1:
-        current_page = 2
-        while current_page <= len(pages):
-            next_page = URL + "page/" + str(current_page) + "/"
-            next_page_html = requests.get(next_page)
-            new_page_soup = BeautifulSoup(next_page_html.content, "html.parser")
-            results += new_page_soup.find_all('li', class_='poster-container')
-            current_page += 1
-            
-    all_movies = []
-    all_movie_titles = []
-    rated_movies = []
+        for movie in results:
+            movie_title = movie.find("div", class_='film-poster').find('img')['alt']
+            movie_id = movie.find("div", class_='film-poster')['data-film-id']
+            rating = movie.find("p", class_='poster-viewingdata').find('span', class_='rating')
+            all_movies.append({
+                "title": movie_title,
+                "id" : movie_id,
+            })
+            db.add(Movies(
+                name = movie_title
+            ))
+            db.commit()
+            all_movie_titles.append(movie_title)
+            if rating is not None:
+                for key in rating.attrs['class']:
+                    if 'rated-' in key:
+                        rated_movies.append({
+                            "title": movie_title,
+                            "id" : movie_id,
+                            "rating" : key.split("-")[1] + "/10"
+                        })
+                        db.add(RatedMovies(
+                            title = movie_title,
+                            imdb_id = int(movie_id),
+                            rating = int(key.split("-")[1])
+                        ))
+                        db.commit()
 
-    for movie in results:
-        movie_title = movie.find("div", class_='film-poster').find('img')['alt']
-        movie_id = movie.find("div", class_='film-poster')['data-film-id']
-        rating = movie.find("p", class_='poster-viewingdata').find('span', class_='rating')
-        all_movies.append({
-            "title": movie_title,
-            "id" : movie_id,
-        })
-        all_movie_titles.append(movie_title)
-        if rating is not None:
-            for key in rating.attrs['class']:
-                if 'rated-' in key:
-                    rated_movies.append({
-                        "title": movie_title,
-                        "id" : movie_id,
-                        "rating" : key.split("-")[1] + "/10"
-                    })
-
-    return {
-        "all_movies": all_movie_titles,
-        "rated_movies": rated_movies
-    }
+        return {
+            "all_movies": all_movie_titles,
+            "rated_movies": rated_movies
+        }
 
 @app.post("/generate/{lb_username}")
 async def generate(request : Request, lb_username : str):
