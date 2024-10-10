@@ -1,14 +1,12 @@
 import json, os
 from fastapi import FastAPI
-from typing import List
 from starlette.requests import Request
 from bs4 import BeautifulSoup
 import requests, json, os
 from openai import OpenAI
 from dotenv import load_dotenv
-from sqlalchemy.sql import text
 from prompts import PROMPT_ALL_MOVIES, PROMPT_RATED_MOVIES
-from models import Movies, RecommendedMovie, MovieRecommendations, Base, SessionLocal, Users, RatedMovies
+from models import Movies, MovieRecommendations, SessionLocal, Users, RatedMovies
 
 app = FastAPI()
 load_dotenv()
@@ -56,7 +54,7 @@ async def add_lb(lb_username: str):
                 "id" : movie_id,
             })
             db.add(Movies(
-                name = movie_title
+                title = movie_title
             ))
             db.commit()
             all_movie_titles.append(movie_title)
@@ -82,6 +80,15 @@ async def add_lb(lb_username: str):
 
 @app.post("/generate/{lb_username}")
 async def generate(request : Request, lb_username : str):
+    with SessionLocal() as db:
+        user_id = db.query(Users).filter(Users.lb_username == lb_username).first()
+        if not user_id:
+            new_user = Users(
+                lb_username = lb_username
+            )
+            db.add(new_user)
+            db.commit()
+
     body = await request.json()
     analysis_type = body['type']
     all_movies = body['all_movies']
@@ -118,14 +125,54 @@ async def enrich(request : Request, lb_username : str):
 
     body = await request.json()
     recommendations = body['recommendations']
-    enriched_data = []
     for movie in recommendations:
-        omdb_url = f"http://www.omdbapi.com/?apikey={os.getenv('OMDB_KEY')}&t={movie}"
-        r = requests.get(omdb_url)
-        data = r.json()
-        enriched_data.append(data)
+        try:
+            omdb_url = f"http://www.omdbapi.com/?apikey={os.getenv('OMDB_KEY')}&t={movie}"
+            r = requests.get(omdb_url)
+            data = r.json()
+            with SessionLocal() as db:
+                add_movie_from_json(db, data)
+        except:
+            print(data)
+            print(movie)
 
-    print(data)
-    with open(f'profiles/{lb_username}.json', 'w') as file:
-        file.write(json.dumps(enriched_data))
-    return enriched_data
+
+    return {"status" : "done"}
+
+
+def add_movie_from_json(session: SessionLocal, movie_data: dict):
+
+    mapped_data = {
+        'title': movie_data.get('Title'),
+        'year': movie_data.get('Year'),
+        'rated': movie_data.get('Rated'),
+        'released': movie_data.get('Released'),
+        'runtime': movie_data.get('Runtime'),
+        'genre': movie_data.get('Genre'),
+        'director': movie_data.get('Director'),
+        'writer': movie_data.get('Writer'),
+        'actors': movie_data.get('Actors'),
+        'plot': movie_data.get('Plot'),
+        'language': movie_data.get('Language'),
+        'country': movie_data.get('Country'),
+        'awards': movie_data.get('Awards'),
+        'poster': movie_data.get('Poster'),
+        'metascore': movie_data.get('Metascore'),
+        'imdb_rating': movie_data.get('imdbRating'),
+        'imdb_votes': movie_data.get('imdbVotes'),
+        'imdb_id': movie_data.get('imdbID'),
+        'type': movie_data.get('Type'),
+        'dvd': movie_data.get('DVD'),
+        'box_office': movie_data.get('BoxOffice'),
+        'production': movie_data.get('Production'),
+        'website': movie_data.get('Website'),
+        'response': movie_data.get('Response')
+    }
+
+    
+    new_movie = Movies(**mapped_data)
+
+    session.add(new_movie)
+    session.commit()
+
+    return new_movie

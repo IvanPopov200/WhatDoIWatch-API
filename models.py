@@ -1,10 +1,11 @@
 from pydantic import BaseModel
 from typing import List
-from sqlalchemy import Column, Integer, String
+from sqlalchemy import Column, Integer, String, Column, Integer, String, Text, DECIMAL, ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy.sql import text
+from sqlalchemy.schema import Index
+from sqlalchemy.ext.declarative import declarative_base
 import os
 from dotenv import load_dotenv
 
@@ -30,8 +31,37 @@ class MovieRecommendations(BaseModel):
 
 class Movies(Base):
     __tablename__ = 'movies'
+    
     id = Column(Integer, primary_key=True)
-    name = Column(String(255))
+    title = Column(String(255), nullable=True)
+    user_id = Column(Integer, ForeignKey('users.id'))
+    year = Column(String(4), nullable=True)
+    rated = Column(String(10), nullable=True)
+    released = Column(String(50), nullable=True)
+    runtime = Column(String(20), nullable=True)
+    genre = Column(String(255), nullable=True)
+    director = Column(String(255), nullable=True)
+    writer = Column(String(255), nullable=True)
+    actors = Column(String(255), nullable=True)
+    plot = Column(Text, nullable=True)
+    language = Column(String(100), nullable=True)
+    country = Column(String(100), nullable=True)
+    awards = Column(String(255), nullable=True)
+    poster = Column(String(255), nullable=True)
+    metascore = Column(String(10), nullable=True)
+    imdb_rating = Column(DECIMAL(3, 1), nullable=True)
+    imdb_votes = Column(String(20), nullable=True)
+    imdb_id = Column(String(20), nullable=True)
+    type = Column(String(50), nullable=True)
+    dvd = Column(String(50), nullable=True)
+    box_office = Column(String(50), nullable=True)
+    production = Column(String(255), nullable=True)
+    website = Column(String(255), nullable=True)
+    response = Column(String(5), nullable=True)
+
+    __table_args__ = (
+        Index('movie_id_user_id', 'user_id'),
+    )
 
 class Users(Base):
     __tablename__ = 'users'
@@ -40,7 +70,19 @@ class Users(Base):
 
 class RatedMovies(Base):
     __tablename__ = 'rated_movies'
-    id = Column(Integer, primary_key = True)
-    title = Column(String(255))
-    imdb_id = Column(Integer)
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    movie_id = Column(Integer, ForeignKey('movies.id'))
     rating = Column(Integer)
+    
+    __table_args__ = (
+        Index('movie_ref', 'movie_id'),
+    )
+
+class Queue(Base):
+    __tablename__ = 'queue'
+    id = Column(Integer, primary_key = True)
+    type = Column(String(255))
+    data = Column(Text)
+    status = Column(Integer)
+
