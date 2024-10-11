@@ -57,7 +57,6 @@ class Movies(Base):
     box_office = Column(String(50), nullable=True)
     production = Column(String(255), nullable=True)
     website = Column(String(255), nullable=True)
-    response = Column(String(5), nullable=True)
 
     __table_args__ = (
         Index('movie_id_user_id', 'user_id'),
@@ -67,16 +66,19 @@ class Users(Base):
     __tablename__ = 'users'
     id = Column(Integer, primary_key = True)
     lb_username = Column(String(255))
+    status = Column(String(255))
 
 class RatedMovies(Base):
     __tablename__ = 'rated_movies'
     
     id = Column(Integer, primary_key=True, autoincrement=True)
     movie_id = Column(Integer, ForeignKey('movies.id'))
+    user_id = Column(Integer, ForeignKey('users.id'))
     rating = Column(Integer)
     
     __table_args__ = (
         Index('movie_ref', 'movie_id'),
+        Index('user_ref', 'user_id')
     )
 
 class Queue(Base):
