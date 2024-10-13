@@ -34,7 +34,7 @@ class Movies(Base):
     
     id = Column(Integer, primary_key=True)
     title = Column(String(255), nullable=True)
-    user_id = Column(Integer, ForeignKey('users.id'))
+    lb_movie_id = Column(String(255))
     year = Column(String(4), nullable=True)
     rated = Column(String(10), nullable=True)
     released = Column(String(50), nullable=True)
@@ -58,9 +58,6 @@ class Movies(Base):
     production = Column(String(255), nullable=True)
     website = Column(String(255), nullable=True)
 
-    __table_args__ = (
-        Index('movie_id_user_id', 'user_id'),
-    )
 
 class Users(Base):
     __tablename__ = 'users'
@@ -68,8 +65,8 @@ class Users(Base):
     lb_username = Column(String(255))
     status = Column(String(255))
 
-class RatedMovies(Base):
-    __tablename__ = 'rated_movies'
+class WatchedMovies(Base):
+    __tablename__ = 'watched_movies'
     
     id = Column(Integer, primary_key=True, autoincrement=True)
     movie_id = Column(Integer, ForeignKey('movies.id'))
@@ -87,4 +84,12 @@ class Queue(Base):
     type = Column(String(255))
     data = Column(Text)
     status = Column(Integer)
+
+
+class Recommendations(Base):
+    __tablename__ = 'recommendations'
+    
+    id = Column(Integer, primary_key = True)
+    user_id = Column(Integer, ForeignKey('users.id'))
+    movie_id = Column(Integer, ForeignKey('movies.id'))
 
