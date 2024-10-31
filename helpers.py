@@ -10,6 +10,11 @@ from prompts import PROMPT_ALL_MOVIES, PROMPT_RATED_MOVIES
 
 load_dotenv()
 
+def check_lb_user_exists(lb_username):
+    
+    URL = "https://letterboxd.com/" + lb_username + "/films/"
+    page = requests.get(URL)
+    return True if page.status_code == 200 else False
 
 
 def scrape_user_movies(lb_username, user):

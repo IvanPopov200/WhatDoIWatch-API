@@ -92,4 +92,5 @@ class Recommendations(Base):
     id = Column(Integer, primary_key = True)
     user_id = Column(Integer, ForeignKey('users.id'))
     movie_id = Column(Integer, ForeignKey('movies.id'))
+    type = Column(String(255))
 
